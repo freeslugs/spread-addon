@@ -1,0 +1,114 @@
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="http://code.jquery.com/ui/1.10.0/jquery-ui.min.js"></script>
+<script>
+var configFile;
+
+// onload
+$(function() {
+  $('#submitButton').click(initForm);
+  // call function "getConfig" from the 
+  google.script.run
+   // the callback function
+   .withSuccessHandler(function(data) {
+      configFile = data;
+      populateDropdown(getTags());
+   })
+   .getConfig();
+});
+
+function populateDropdown(data) {
+  for(var i = 0; i<data.length; i++) {
+    $("#dropdown").append("<option value='" + data[i] + "'>");
+  }
+  $("#searchBar").attr("placeholder", "e.g. stock prices ...");
+}
+
+function getTags() {
+  var fnNames = Object.keys(configFile);
+  var dropdown = [];
+  
+  for(var i = 0; i<fnNames.length; i++){ 
+    var tags = configFile[fnNames[i]].tags;
+    for(var j = 0; j<tags.length; j++){ 
+      dropdown.push(tags[j]); //+ " [" + fnNames[i] + "]"
+    }
+  }
+  return dropdown; 
+  //an array of all the tags, with the fn name
+  //e.g. ['company information [crunchbase]']
+}
+
+function writeFunction() {
+  var tag = $('#searchBar').val();
+  var fn = getFnFromTag(tag);
+  var params = getParamValues(fn);
+  google.script.run.writeFunction(fn, params);
+}
+
+function initForm() {
+  //console.log("init form"); √
+  $('#params').empty();
+  $('#sidebarBottom').empty();
+  var tag = $('#searchBar').val();
+  var fn = getFnFromTag(tag);
+  
+  if(!configFile[fn]) {
+    onFailure("Please select a valid function");
+    return false;
+  }
+
+  getParams(fn);
+  $('#sidebarBottom').append("<button class='action' id='grabButton'>Grab</button>");
+  $('#grabButton').click(writeFunction);
+}
+
+function onFailure(error) {
+  alert(error);
+  return false;
+}
+
+function getParamValues(fn) {
+  var origin = $('#params').children(".inline");
+  var responses = [];
+  for (var i = 0; i< origin.length; i++) {
+    var input = origin.children("input");
+    var value = input[i].value;
+    responses.push(value);
+  }
+  return responses;
+}
+
+
+function sendRequest() {
+  var tag = $('#searchBar').val();
+  var fn = getFnFromTag(tag);
+  var params = getParamValues(fn);
+  google.script.run
+    .withSuccessHandler(function(data) {
+      forcePrint(data);
+    })
+    .grab(fn, params);
+}
+
+function getParams(fn) {
+  var params = configFile[fn].request.params;
+  $("#params").append("<b>Params:</b><br>");
+  for(var param in params) {
+    var param = params[param];
+    $("#params").append("<div class='inline form-group'><label for='" + param + "'>" + param + "</label><input type='text' id='" + param + "'></div>");
+  }
+}
+
+function getFnFromTag(tag) {
+  var fnNames = Object.keys(configFile);
+  for(var i = 0; i<fnNames.length; i++){ 
+    var tags = configFile[fnNames[i]].tags;
+    for(var j = 0; j<tags.length; j++){ 
+      if(tag == tags[j])
+        return fnNames[i];
+    }
+  }
+  return false;
+}
+
+</script>
